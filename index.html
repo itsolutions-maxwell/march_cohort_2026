@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StayFinder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">stayfinder</div>
+        <nav class="topnav">
+          <a href="#">Stays</a>
+          <a href="#">Experiences</a>
+          <a href="#">Online Experiences</a>
+        </nav>
+        <button class="host-btn">Become a host</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-content">
+          <p class="hero-kicker">Plan your next getaway</p>
+          <h1>Find unique places to stay</h1>
+          <p class="hero-sub">Discover cabins, beach houses, city apartments, and more.</p>
+        </div>
+      </section>
+
+      <section class="search-panel" aria-label="Search stays">
+        <div class="search-grid">
+          <label>
+            <span>Where</span>
+            <input id="where-input" type="text" placeholder="Search destinations" />
+          </label>
+          <label>
+            <span>Check in</span>
+            <input type="date" />
+          </label>
+          <label>
+            <span>Check out</span>
+            <input type="date" />
+          </label>
+          <label>
+            <span>Guests</span>
+            <input type="number" min="1" value="2" />
+          </label>
+          <button id="search-btn" class="search-btn">Search</button>
+        </div>
+      </section>
+
+      <section class="listings" aria-label="Popular homes">
+        <h2>Popular homes</h2>
+        <div class="cards">
+          <article class="card">
+            <button class="fav-btn" aria-label="Save listing">♡</button>
+            <div class="card-image image-one"></div>
+            <div class="card-body">
+              <p class="location">Asheville, North Carolina</p>
+              <h3>Modern mountain cabin</h3>
+              <p class="meta">4 guests · 2 bedrooms · 2 beds</p>
+              <p class="price">$189 night</p>
+            </div>
+          </article>
+
+          <article class="card">
+            <button class="fav-btn" aria-label="Save listing">♡</button>
+            <div class="card-image image-two"></div>
+            <div class="card-body">
+              <p class="location">Malibu, California</p>
+              <h3>Oceanview retreat</h3>
+              <p class="meta">6 guests · 3 bedrooms · 3 beds</p>
+              <p class="price">$325 night</p>
+            </div>
+          </article>
+
+          <article class="card">
+            <button class="fav-btn" aria-label="Save listing">♡</button>
+            <div class="card-image image-three"></div>
+            <div class="card-body">
+              <p class="location">Austin, Texas</p>
+              <h3>Downtown loft</h3>
+              <p class="meta">2 guests · 1 bedroom · 1 bed</p>
+              <p class="price">$142 night</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <p id="message" class="message" aria-live="polite"></p>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
