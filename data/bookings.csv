@@ -1,0 +1,4 @@
+booking_id,user_id,stay_id,check_in,check_out,guests,total_price,status,created_at
+B001,U001,S001,2026-06-12,2026-06-15,2,567,confirmed,2026-05-03T11:22:00Z
+B002,U003,S001,2026-05-06,2026-05-08,2,378,confirmed,2026-05-07T02:29:52.948544Z
+B003,U004,S001,2026-05-06,2026-05-08,4,378,confirmed,2026-05-07T02:51:22.687922Z

@@ -52,40 +52,45 @@
 
       <section class="listings" aria-label="Popular homes">
         <h2>Popular homes</h2>
-        <div class="cards">
-          <article class="card">
-            <button class="fav-btn" aria-label="Save listing">♡</button>
-            <div class="card-image image-one"></div>
-            <div class="card-body">
-              <p class="location">Asheville, North Carolina</p>
-              <h3>Modern mountain cabin</h3>
-              <p class="meta">4 guests · 2 bedrooms · 2 beds</p>
-              <p class="price">$189 night</p>
-            </div>
-          </article>
+        <div id="cards" class="cards"></div>
+      </section>
 
-          <article class="card">
-            <button class="fav-btn" aria-label="Save listing">♡</button>
-            <div class="card-image image-two"></div>
-            <div class="card-body">
-              <p class="location">Malibu, California</p>
-              <h3>Oceanview retreat</h3>
-              <p class="meta">6 guests · 3 bedrooms · 3 beds</p>
-              <p class="price">$325 night</p>
-            </div>
-          </article>
+      <section class="booking" aria-label="Selected listing booking">
+        <h2>Listing details</h2>
+        <article id="listing-detail" class="listing-detail" hidden>
+          <div id="detail-image" class="listing-image image-one"></div>
+          <div class="listing-content">
+            <p id="detail-location" class="location"></p>
+            <h3 id="detail-title"></h3>
+            <p id="detail-meta" class="meta"></p>
+            <p id="detail-price" class="price"></p>
+          </div>
+        </article>
 
-          <article class="card">
-            <button class="fav-btn" aria-label="Save listing">♡</button>
-            <div class="card-image image-three"></div>
-            <div class="card-body">
-              <p class="location">Austin, Texas</p>
-              <h3>Downtown loft</h3>
-              <p class="meta">2 guests · 1 bedroom · 1 bed</p>
-              <p class="price">$142 night</p>
-            </div>
-          </article>
-        </div>
+        <h2>Book this listing</h2>
+        <form id="booking-form" class="booking-form">
+          <label>
+            <span>Full name</span>
+            <input id="user-name" type="text" required placeholder="Enter your name" />
+          </label>
+          <label>
+            <span>Email</span>
+            <input id="user-email" type="email" required placeholder="name@example.com" />
+          </label>
+          <label>
+            <span>Check in</span>
+            <input id="book-check-in" type="date" required />
+          </label>
+          <label>
+            <span>Check out</span>
+            <input id="book-check-out" type="date" required />
+          </label>
+          <label>
+            <span>Guests</span>
+            <input id="book-guests" type="number" min="1" value="2" required />
+          </label>
+          <button type="submit" class="search-btn">Confirm booking</button>
+        </form>
       </section>
 
       <p id="message" class="message" aria-live="polite"></p>
