@@ -1,0 +1,4 @@
+stay_id,title,location,guests,bedrooms,beds,price_per_night,image_class
+S001,Modern mountain cabin,"Asheville, North Carolina",4,2,2,189,image-one
+S002,Oceanview retreat,"Malibu, California",6,3,3,325,image-two
+S003,Downtown loft,"Austin, Texas",2,1,1,142,image-three
