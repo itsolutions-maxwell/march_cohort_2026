@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}My records — {{ hospital_name }}{% endblock %}
+{% block content %}
+  <h1>{{ hospital_name }} — my records</h1>
+  <p class="subtitle">Welcome, {{ user.full_name }}.</p>
+
+  <section class="card">
+    {% if records %}
+      <table>
+        <thead>
+          <tr><th>When</th><th>Type</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+            <tr>
+              <td>{{ r.created_at }}</td>
+              <td>{{ r.record_type }}</td>
+              <td>{{ r.note }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="subtitle">No records yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Choose your hospital{% endblock %}
+{% block content %}
+  <h1>Choose your hospital</h1>
+  <p class="subtitle">Select the hospital you're logging in to.</p>
+  <div class="hospital-grid">
+    {% for slug, name in hospitals.items() %}
+      <a class="hospital-card" href="/{{ slug }}/login">{{ name }}</a>
+    {% endfor %}
+  </div>
+{% endblock %}

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Hospital Analytics{% endblock %}</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Hospital Analytics</a>
+    {% if user %}
+      <form class="logout-form" action="/logout" method="post">
+        <span class="who">{{ user.full_name }} · {{ hospital_name }} {{ user.role }}</span>
+        <button type="submit">Log out</button>
+      </form>
+    {% endif %}
+  </header>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
