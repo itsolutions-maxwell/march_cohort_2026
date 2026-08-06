@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
-from app.bigquery_client import get_user, insert_record, list_recent_records
+from app.bigquery_client import get_patient_by_id, insert_record, list_patients, list_recent_records
 from app.config import HOSPITALS
 from app.deps import current_user_for
 from app.templating import templates
@@ -16,6 +16,7 @@ def staff_dashboard(request: Request, hospital: str, error: str | None = None):
         return RedirectResponse(f"/{hospital}/login", status_code=303)
 
     records = list_recent_records(hospital)
+    patients = list_patients(hospital)
     return templates.TemplateResponse(
         request,
         "staff_dashboard.html",
@@ -24,6 +25,7 @@ def staff_dashboard(request: Request, hospital: str, error: str | None = None):
             "hospital_name": HOSPITALS[hospital],
             "user": user,
             "records": records,
+            "patients": patients,
             "error": error,
         },
     )
@@ -33,7 +35,7 @@ def staff_dashboard(request: Request, hospital: str, error: str | None = None):
 def create_record(
     request: Request,
     hospital: str,
-    patient_email: str = Form(...),
+    patient_user_id: str = Form(...),
     record_type: str = Form(...),
     note: str = Form(...),
 ):
@@ -41,9 +43,10 @@ def create_record(
     if not user:
         return RedirectResponse(f"/{hospital}/login", status_code=303)
 
-    patient = get_user(hospital, patient_email, "patient")
+    patient = get_patient_by_id(hospital, patient_user_id)
     if not patient:
         records = list_recent_records(hospital)
+        patients = list_patients(hospital)
         return templates.TemplateResponse(
             request,
             "staff_dashboard.html",
@@ -52,7 +55,8 @@ def create_record(
                 "hospital_name": HOSPITALS[hospital],
                 "user": user,
                 "records": records,
-                "error": f"No patient found at this hospital with email {patient_email}.",
+                "patients": patients,
+                "error": "Selected patient was not found at this hospital.",
             },
             status_code=400,
         )

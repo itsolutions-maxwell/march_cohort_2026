@@ -9,10 +9,9 @@ Usage (from the hospital-analytics/ directory, after setup_bigquery.py):
 """
 
 import uuid
-from datetime import datetime, timezone
 
-from app.bigquery_client import get_user, get_client
-from app.config import HOSPITALS, settings
+from app.bigquery_client import get_user, insert_user
+from app.config import HOSPITALS
 from app.security import hash_password
 
 DEMO_PASSWORD = "changeme123"
@@ -23,19 +22,14 @@ def seed_user(hospital: str, email: str, role: str, full_name: str) -> None:
         print(f"  Already exists: {email} ({role}) in {hospital}")
         return
 
-    client = get_client()
-    table = f"{settings.gcp_project_id}.{hospital}.users"
-    row = {
-        "user_id": str(uuid.uuid4()),
-        "email": email,
-        "password_hash": hash_password(DEMO_PASSWORD),
-        "role": role,
-        "full_name": full_name,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    errors = client.insert_rows_json(table, [row])
-    if errors:
-        raise RuntimeError(f"Failed to seed {email}: {errors}")
+    insert_user(
+        hospital,
+        user_id=str(uuid.uuid4()),
+        email=email,
+        password_hash=hash_password(DEMO_PASSWORD),
+        role=role,
+        full_name=full_name,
+    )
     print(f"  Seeded: {email} ({role}) in {hospital} — password: {DEMO_PASSWORD}")
 
 

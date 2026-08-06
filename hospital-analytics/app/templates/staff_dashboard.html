@@ -10,21 +10,30 @@
 
   <section class="card">
     <h2>Capture a new record</h2>
-    <form class="card-form" action="/{{ hospital }}/staff/records" method="post">
-      <label>
-        Patient email
-        <input type="email" name="patient_email" required placeholder="patient@example.com">
-      </label>
-      <label>
-        Record type
-        <input type="text" name="record_type" required placeholder="e.g. visit, lab result, note">
-      </label>
-      <label>
-        Note
-        <textarea name="note" rows="3" required></textarea>
-      </label>
-      <button type="submit">Save record</button>
-    </form>
+    {% if patients %}
+      <form class="card-form" action="/{{ hospital }}/staff/records" method="post">
+        <label>
+          Patient
+          <select name="patient_user_id" required>
+            <option value="" disabled selected>Select a patient</option>
+            {% for p in patients %}
+              <option value="{{ p.user_id }}">{{ p.full_name }} ({{ p.email }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Record type
+          <input type="text" name="record_type" required placeholder="e.g. visit, lab result, note">
+        </label>
+        <label>
+          Note
+          <textarea name="note" rows="3" required></textarea>
+        </label>
+        <button type="submit">Save record</button>
+      </form>
+    {% else %}
+      <p class="subtitle">No patients have signed up at {{ hospital_name }} yet.</p>
+    {% endif %}
   </section>
 
   <section class="card">

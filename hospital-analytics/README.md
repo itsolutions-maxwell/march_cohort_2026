@@ -82,13 +82,17 @@ Credentials pick it up automatically — no key file needed in prod).
 ## Known limitations (this is a starting skeleton, not production-ready)
 
 - **BigQuery as an auth store**: BigQuery is an analytics warehouse, not a
-  transactional database — no unique constraints, and streaming inserts
-  have a short visibility delay. Fine at demo scale; if this grows past a
-  handful of users, move `users` to a real OLTP store (e.g. Cloud SQL) and
-  keep BigQuery for `records`/analytics only.
-- **No self-registration** — accounts are seeded manually via
-  `bigquery/seed_users.py`. Add a signup flow before giving this to real
-  users.
-- **No rate limiting or account lockout** on the login endpoint.
+  transactional database — no unique constraints (the signup email check
+  and the insert aren't atomic, so two simultaneous signups with the same
+  email could both slip through), and every write is a load job rather
+  than a fast row insert. That's a deliberate workaround: both the
+  streaming insert API and DML `INSERT` are rejected on GCP projects
+  without billing enabled ("...not allowed in the free tier"), but load
+  jobs are free-tier-safe. Load jobs are also quota-limited (~1,500 per
+  table per day), which is plenty for a demo but not a real signup/write
+  volume. If this grows past a handful of users, move `users` to a real
+  OLTP store (e.g. Cloud SQL) and keep BigQuery for `records`/analytics
+  only — or enable billing on the project and switch back to DML/streaming.
+- **No rate limiting or account lockout** on the login/signup endpoints.
 - **`SESSION_SECRET_KEY` must be a real secret** in any deployed
   environment — never commit `.env` (already gitignored).
