@@ -1,12 +1,37 @@
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
-from app.bigquery_client import get_patient_by_id, insert_record, list_patients, list_recent_records
-from app.config import HOSPITALS
+from app.bigquery_client import (
+    create_encounter,
+    get_hospital_info,
+    get_patient_by_id,
+    list_available_rooms,
+    list_patients,
+    list_recent_encounters,
+    list_rooms,
+)
+from app.config import ENCOUNTER_TYPES, HOSPITALS
 from app.deps import current_user_for
 from app.templating import templates
 
 router = APIRouter()
+
+
+def _dashboard_context(hospital: str, user: dict, error: str | None = None) -> dict:
+    total_rooms = list_rooms(hospital)
+    available_rooms = list_available_rooms(hospital)
+    return {
+        "hospital": hospital,
+        "hospital_name": HOSPITALS[hospital],
+        "hospital_info": get_hospital_info(hospital),
+        "user": user,
+        "encounters": list_recent_encounters(hospital),
+        "patients": list_patients(hospital),
+        "encounter_types": ENCOUNTER_TYPES,
+        "total_rooms": len(total_rooms),
+        "occupied_rooms": len(total_rooms) - len(available_rooms),
+        "error": error,
+    }
 
 
 @router.get("/{hospital}/staff/dashboard")
@@ -15,57 +40,35 @@ def staff_dashboard(request: Request, hospital: str, error: str | None = None):
     if not user:
         return RedirectResponse(f"/{hospital}/login", status_code=303)
 
-    records = list_recent_records(hospital)
-    patients = list_patients(hospital)
-    return templates.TemplateResponse(
-        request,
-        "staff_dashboard.html",
-        {
-            "hospital": hospital,
-            "hospital_name": HOSPITALS[hospital],
-            "user": user,
-            "records": records,
-            "patients": patients,
-            "error": error,
-        },
-    )
+    return templates.TemplateResponse(request, "staff_dashboard.html", _dashboard_context(hospital, user, error))
 
 
-@router.post("/{hospital}/staff/records")
-def create_record(
+@router.post("/{hospital}/staff/encounters")
+def admit_patient(
     request: Request,
     hospital: str,
     patient_user_id: str = Form(...),
-    record_type: str = Form(...),
-    note: str = Form(...),
+    encounter_type: str = Form(...),
+    reason: str = Form(""),
 ):
     user = current_user_for(request, hospital, "staff")
     if not user:
         return RedirectResponse(f"/{hospital}/login", status_code=303)
 
     patient = get_patient_by_id(hospital, patient_user_id)
-    if not patient:
-        records = list_recent_records(hospital)
-        patients = list_patients(hospital)
+    if not patient or encounter_type not in ENCOUNTER_TYPES:
         return templates.TemplateResponse(
             request,
             "staff_dashboard.html",
-            {
-                "hospital": hospital,
-                "hospital_name": HOSPITALS[hospital],
-                "user": user,
-                "records": records,
-                "patients": patients,
-                "error": "Selected patient was not found at this hospital.",
-            },
+            _dashboard_context(hospital, user, "Could not admit patient — invalid patient or encounter type."),
             status_code=400,
         )
 
-    insert_record(
+    encounter_id = create_encounter(
         hospital,
         patient_user_id=patient["user_id"],
-        staff_user_id=user["user_id"],
-        record_type=record_type,
-        note=note,
+        attending_staff_user_id=user["user_id"],
+        encounter_type=encounter_type,
+        reason=reason or None,
     )
-    return RedirectResponse(f"/{hospital}/staff/dashboard", status_code=303)
+    return RedirectResponse(f"/{hospital}/staff/encounters/{encounter_id}", status_code=303)

@@ -1,27 +1,76 @@
 {% extends "base.html" %}
-{% block title %}My records — {{ hospital_name }}{% endblock %}
+{% block title %}My portal — {{ hospital_name }}{% endblock %}
 {% block content %}
-  <h1>{{ hospital_name }} — my records</h1>
+  <h1>{{ hospital_name }} — my portal</h1>
   <p class="subtitle">Welcome, {{ user.full_name }}.</p>
 
-  <section class="card">
-    {% if records %}
-      <table>
-        <thead>
-          <tr><th>When</th><th>Type</th><th>Note</th></tr>
-        </thead>
-        <tbody>
-          {% for r in records %}
-            <tr>
-              <td>{{ r.created_at }}</td>
-              <td>{{ r.record_type }}</td>
-              <td>{{ r.note }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <p class="subtitle">No records yet.</p>
-    {% endif %}
-  </section>
+  {% if profile %}
+    <section class="card">
+      <h2>My profile</h2>
+      <p class="subtitle">
+        DOB: {{ profile.date_of_birth }} · Gender: {{ profile.gender|capitalize }}
+        {% if profile.phone %} · Phone: {{ profile.phone }}{% endif %}
+        {% if profile.blood_type %} · Blood type: {{ profile.blood_type }}{% endif %}
+      </p>
+    </section>
+  {% endif %}
+
+  {% if encounters %}
+    {% for e in encounters %}
+      <section class="card">
+        <h2>{{ e.encounter_type|capitalize }} — {{ e.created_at }}</h2>
+        <p class="subtitle">
+          {{ "Discharged" if e.is_discharged else "Active" }}
+          {% if e.room_number %} · Room {{ e.room_number }} ({{ e.room_type|capitalize }}){% endif %}
+          · Attending: {{ e.staff_name }}
+          {% if e.reason %} · Reason: {{ e.reason }}{% endif %}
+        </p>
+        {% if e.is_discharged and e.discharge_notes %}
+          <p class="subtitle">Discharge notes: {{ e.discharge_notes }}</p>
+        {% endif %}
+
+        {% if e.treatments %}
+          <table>
+            <thead>
+              <tr><th>When</th><th>Type</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              {% for t in e.treatments %}
+                <tr>
+                  <td>{{ t.administered_at }}</td>
+                  <td>{{ t.treatment_type }}</td>
+                  <td>{{ t.notes }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="subtitle">No treatments recorded for this visit yet.</p>
+        {% endif %}
+
+        {% if e.charges %}
+          <h3>Bill for this visit</h3>
+          <table>
+            <thead>
+              <tr><th>Type</th><th>Description</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+              {% for c in e.charges %}
+                <tr>
+                  <td>{{ c.charge_type|capitalize }}</td>
+                  <td>{{ c.description }}</td>
+                  <td>${{ "%.2f"|format(c.amount) }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="subtitle">Total: ${{ "%.2f"|format(e.charges|sum(attribute="amount")) }}</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+  {% else %}
+    <section class="card">
+      <p class="subtitle">No visits yet.</p>
+    </section>
+  {% endif %}
 {% endblock %}

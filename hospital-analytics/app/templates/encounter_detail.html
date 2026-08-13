@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Encounter — {{ encounter.patient_name }}{% endblock %}
+{% block content %}
+  <a class="back-link" href="/{{ hospital }}/staff/dashboard">&larr; Back to dashboard</a>
+  <h1>{{ encounter.patient_name }} — {{ encounter.encounter_type|capitalize }}</h1>
+  <p class="subtitle">
+    {{ "Discharged" if encounter.is_discharged else "Active" }} ·
+    Admitted {{ encounter.created_at }} by {{ encounter.staff_name }}
+    {% if encounter.reason %} · Reason: {{ encounter.reason }}{% endif %}
+  </p>
+
+  {% if error %}
+    <p class="error">{{ error }}</p>
+  {% endif %}
+
+  {% if encounter.is_discharged %}
+    <section class="card">
+      <h2>Discharged</h2>
+      <p class="subtitle">{{ encounter.discharged_at }}</p>
+      {% if encounter.discharge_notes %}<p>{{ encounter.discharge_notes }}</p>{% endif %}
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Room</h2>
+    {% if current_room %}
+      <p>Room {{ current_room.room_number }} ({{ current_room.room_type|capitalize }}, floor {{ current_room.floor }}) — assigned {{ current_room.assigned_at }}</p>
+    {% else %}
+      <p class="subtitle">No room assigned yet.</p>
+    {% endif %}
+
+    {% if not encounter.is_discharged %}
+      {% if available_rooms %}
+        <form class="card-form" action="/{{ hospital }}/staff/encounters/{{ encounter.encounter_id }}/rooms" method="post">
+          <label>
+            {{ "Reassign room" if current_room else "Assign room" }}
+            <select name="room_id" required>
+              <option value="" disabled selected>Select a room</option>
+              {% for r in available_rooms %}
+                <option value="{{ r.room_id }}">Room {{ r.room_number }} ({{ r.room_type|capitalize }}, floor {{ r.floor }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <button type="submit">{{ "Reassign" if current_room else "Assign" }}</button>
+        </form>
+      {% else %}
+        <p class="subtitle">No rooms currently available.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Treatments</h2>
+    {% if treatments %}
+      <table>
+        <thead>
+          <tr><th>When</th><th>Type</th><th>Notes</th><th>By</th></tr>
+        </thead>
+        <tbody>
+          {% for t in treatments %}
+            <tr>
+              <td>{{ t.administered_at }}</td>
+              <td>{{ t.treatment_type }}</td>
+              <td>{{ t.notes }}</td>
+              <td>{{ t.staff_name }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="subtitle">No treatments recorded yet.</p>
+    {% endif %}
+
+    {% if not encounter.is_discharged %}
+      <form class="card-form" action="/{{ hospital }}/staff/encounters/{{ encounter.encounter_id }}/treatments" method="post">
+        <label>
+          Treatment type
+          <input type="text" name="treatment_type" required placeholder="e.g. medication, lab test, procedure">
+        </label>
+        <label>
+          Notes
+          <textarea name="notes" rows="3"></textarea>
+        </label>
+        <button type="submit">Add treatment</button>
+      </form>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Billing</h2>
+    {% if charges %}
+      <table>
+        <thead>
+          <tr><th>When</th><th>Type</th><th>Description</th><th>Amount</th></tr>
+        </thead>
+        <tbody>
+          {% for c in charges %}
+            <tr>
+              <td>{{ c.created_at }}</td>
+              <td>{{ c.charge_type|capitalize }}</td>
+              <td>{{ c.description }}</td>
+              <td>${{ "%.2f"|format(c.amount) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="subtitle">Total: ${{ "%.2f"|format(charges|sum(attribute="amount")) }}</p>
+    {% else %}
+      <p class="subtitle">No charges yet.</p>
+    {% endif %}
+  </section>
+
+  {% if not encounter.is_discharged %}
+    <section class="card">
+      <h2>Discharge</h2>
+      <form class="card-form" action="/{{ hospital }}/staff/encounters/{{ encounter.encounter_id }}/discharge" method="post">
+        <label>
+          Discharge notes (optional)
+          <textarea name="discharge_notes" rows="3"></textarea>
+        </label>
+        <button type="submit">Discharge patient</button>
+      </form>
+    </section>
+  {% endif %}
+{% endblock %}

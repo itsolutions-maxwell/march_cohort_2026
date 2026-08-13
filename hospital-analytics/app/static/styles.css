@@ -102,6 +102,9 @@ body {
 
 .card-form { display: flex; flex-direction: column; gap: 1rem; }
 
+.toggle-fields { display: flex; flex-direction: column; gap: 1rem; }
+.toggle-fields[hidden] { display: none; }
+
 label {
   display: flex;
   flex-direction: column;

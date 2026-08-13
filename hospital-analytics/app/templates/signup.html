@@ -11,7 +11,7 @@
   <form class="card-form" action="/{{ hospital }}/signup" method="post">
     <label>
       I am a
-      <select name="role" required>
+      <select name="role" id="role" required>
         <option value="staff">Staff member</option>
         <option value="patient">Patient</option>
       </select>
@@ -28,8 +28,75 @@
       Password
       <input type="password" name="password" required minlength="8">
     </label>
+
+    <div id="staff-fields" class="toggle-fields">
+      <label>
+        Department
+        <select name="department" id="department">
+          {% for d in departments %}
+            <option value="{{ d }}">{{ d }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Title
+        <input type="text" name="title" id="title" placeholder="e.g. Nurse, Attending Physician">
+      </label>
+    </div>
+
+    <div id="patient-fields" class="toggle-fields" hidden>
+      <label>
+        Date of birth
+        <input type="date" name="date_of_birth" id="date_of_birth">
+      </label>
+      <label>
+        Gender
+        <select name="gender" id="gender">
+          {% for g in genders %}
+            <option value="{{ g }}">{{ g|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Phone (optional)
+        <input type="tel" name="phone">
+      </label>
+      <label>
+        Blood type (optional)
+        <select name="blood_type">
+          <option value="">Unknown</option>
+          {% for bt in blood_types %}
+            <option value="{{ bt }}">{{ bt }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
     <button type="submit">Create account</button>
   </form>
 
   <p class="subtitle">Already have an account? <a href="/{{ hospital }}/login">Log in</a>.</p>
+
+  <script>
+    const roleSelect = document.getElementById("role");
+    const staffFields = document.getElementById("staff-fields");
+    const patientFields = document.getElementById("patient-fields");
+    const departmentField = document.getElementById("department");
+    const titleField = document.getElementById("title");
+    const dobField = document.getElementById("date_of_birth");
+    const genderField = document.getElementById("gender");
+
+    function toggleRoleFields() {
+      const isPatient = roleSelect.value === "patient";
+      staffFields.hidden = isPatient;
+      patientFields.hidden = !isPatient;
+      departmentField.required = !isPatient;
+      titleField.required = !isPatient;
+      dobField.required = isPatient;
+      genderField.required = isPatient;
+    }
+
+    roleSelect.addEventListener("change", toggleRoleFields);
+    toggleRoleFields();
+  </script>
 {% endblock %}

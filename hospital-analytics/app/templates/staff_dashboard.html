@@ -2,16 +2,20 @@
 {% block title %}Staff dashboard — {{ hospital_name }}{% endblock %}
 {% block content %}
   <h1>{{ hospital_name }} staff dashboard</h1>
-  <p class="subtitle">Welcome, {{ user.full_name }}.</p>
+  <p class="subtitle">
+    Welcome, {{ user.full_name }}.
+    {% if hospital_info %} · {{ hospital_info.address }} · {{ hospital_info.phone }}{% endif %}
+  </p>
+  <p class="subtitle">Room occupancy: {{ occupied_rooms }} / {{ total_rooms }} occupied</p>
 
   {% if error %}
     <p class="error">{{ error }}</p>
   {% endif %}
 
   <section class="card">
-    <h2>Capture a new record</h2>
+    <h2>Admit a patient</h2>
     {% if patients %}
-      <form class="card-form" action="/{{ hospital }}/staff/records" method="post">
+      <form class="card-form" action="/{{ hospital }}/staff/encounters" method="post">
         <label>
           Patient
           <select name="patient_user_id" required>
@@ -22,14 +26,18 @@
           </select>
         </label>
         <label>
-          Record type
-          <input type="text" name="record_type" required placeholder="e.g. visit, lab result, note">
+          Encounter type
+          <select name="encounter_type" required>
+            {% for t in encounter_types %}
+              <option value="{{ t }}">{{ t|capitalize }}</option>
+            {% endfor %}
+          </select>
         </label>
         <label>
-          Note
-          <textarea name="note" rows="3" required></textarea>
+          Reason (optional)
+          <input type="text" name="reason" placeholder="e.g. chest pain, annual checkup">
         </label>
-        <button type="submit">Save record</button>
+        <button type="submit">Admit</button>
       </form>
     {% else %}
       <p class="subtitle">No patients have signed up at {{ hospital_name }} yet.</p>
@@ -37,25 +45,27 @@
   </section>
 
   <section class="card">
-    <h2>Recent records</h2>
-    {% if records %}
+    <h2>Encounters</h2>
+    {% if encounters %}
       <table>
         <thead>
-          <tr><th>When</th><th>Type</th><th>Patient</th><th>Note</th></tr>
+          <tr><th>When</th><th>Patient</th><th>Type</th><th>Status</th><th>Room</th><th></th></tr>
         </thead>
         <tbody>
-          {% for r in records %}
+          {% for e in encounters %}
             <tr>
-              <td>{{ r.created_at }}</td>
-              <td>{{ r.record_type }}</td>
-              <td>{{ r.patient_user_id }}</td>
-              <td>{{ r.note }}</td>
+              <td>{{ e.created_at }}</td>
+              <td>{{ e.patient_name }}</td>
+              <td>{{ e.encounter_type|capitalize }}</td>
+              <td>{{ "Discharged" if e.is_discharged else "Active" }}</td>
+              <td>{{ e.room_number if e.room_number else "Unassigned" }}</td>
+              <td><a href="/{{ hospital }}/staff/encounters/{{ e.encounter_id }}">View</a></td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% else %}
-      <p class="subtitle">No records yet.</p>
+      <p class="subtitle">No encounters yet.</p>
     {% endif %}
   </section>
 {% endblock %}
