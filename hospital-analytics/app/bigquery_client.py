@@ -14,8 +14,10 @@ ROOMS_TABLE = "rooms"
 ENCOUNTERS_TABLE = "encounters"
 ROOM_ASSIGNMENTS_TABLE = "room_assignments"
 TREATMENTS_TABLE = "treatments"
+TEST_COMPLETIONS_TABLE = "test_completions"
 DISCHARGES_TABLE = "discharges"
 BILLING_CHARGES_TABLE = "billing_charges"
+PAYMENTS_TABLE = "payments"
 
 
 @lru_cache
@@ -122,7 +124,13 @@ def insert_user(hospital: str, user_id: str, email: str, password_hash: str, rol
 # ---- patient demographics ---------------------------------------------
 
 def insert_patient_profile(
-    hospital: str, patient_user_id: str, date_of_birth: str, gender: str, phone: str, blood_type: str
+    hospital: str,
+    patient_user_id: str,
+    date_of_birth: str,
+    gender: str,
+    phone: str,
+    blood_type: str,
+    payer_type: str,
 ) -> None:
     row = {
         "patient_user_id": patient_user_id,
@@ -130,6 +138,7 @@ def insert_patient_profile(
         "gender": gender,
         "phone": phone,
         "blood_type": blood_type,
+        "payer_type": payer_type,
         "created_at": _now(),
     }
     _load_insert(_table_ref(hospital, PATIENTS_TABLE), row)
@@ -138,7 +147,7 @@ def insert_patient_profile(
 def get_patient_profile(hospital: str, patient_user_id: str) -> dict | None:
     client = get_client()
     query = f"""
-        SELECT patient_user_id, date_of_birth, gender, phone, blood_type
+        SELECT patient_user_id, date_of_birth, gender, phone, blood_type, payer_type
         FROM `{_table_ref(hospital, PATIENTS_TABLE)}`
         WHERE patient_user_id = @patient_user_id
         LIMIT 1
@@ -310,7 +319,13 @@ def assign_room(hospital: str, encounter_id: str, room_id: str, staff_user_id: s
 # ---- encounters -----------------------------------------------------------
 
 def create_encounter(
-    hospital: str, patient_user_id: str, attending_staff_user_id: str, encounter_type: str, reason: str
+    hospital: str,
+    patient_user_id: str,
+    attending_staff_user_id: str,
+    encounter_type: str,
+    reason: str,
+    department: str,
+    expected_discharge_date: str | None,
 ) -> str:
     encounter_id = str(uuid.uuid4())
     row = {
@@ -319,6 +334,8 @@ def create_encounter(
         "attending_staff_user_id": attending_staff_user_id,
         "encounter_type": encounter_type,
         "reason": reason,
+        "department": department,
+        "expected_discharge_date": expected_discharge_date,
         "created_at": _now(),
     }
     _load_insert(_table_ref(hospital, ENCOUNTERS_TABLE), row)
@@ -355,6 +372,7 @@ def _encounter_rows(
         SELECT
             e.encounter_id, e.patient_user_id, e.attending_staff_user_id,
             e.encounter_type, e.reason, e.created_at,
+            e.department, e.expected_discharge_date,
             p.full_name AS patient_name,
             s.full_name AS staff_name,
             r.room_number, r.room_type,
@@ -400,13 +418,20 @@ def list_encounters_for_patient(hospital: str, patient_user_id: str) -> list[dic
 # ---- treatments -----------------------------------------------------------
 
 def add_treatment(
-    hospital: str, encounter_id: str, staff_user_id: str, treatment_type: str, notes: str, patient_user_id: str
+    hospital: str,
+    encounter_id: str,
+    staff_user_id: str,
+    treatment_type: str,
+    notes: str,
+    patient_user_id: str,
+    category: str,
 ) -> None:
     row = {
         "treatment_id": str(uuid.uuid4()),
         "encounter_id": encounter_id,
         "staff_user_id": staff_user_id,
         "treatment_type": treatment_type,
+        "category": category,
         "notes": notes,
         "administered_at": _now(),
     }
@@ -417,16 +442,34 @@ def add_treatment(
 def list_treatments_for_encounter(hospital: str, encounter_id: str) -> list[dict]:
     client = get_client()
     query = f"""
-        SELECT t.treatment_id, t.treatment_type, t.notes, t.administered_at, s.full_name AS staff_name
+        SELECT
+            t.treatment_id, t.treatment_type, t.category, t.notes, t.administered_at,
+            s.full_name AS staff_name,
+            c.completed_at, c.result_notes
         FROM `{_table_ref(hospital, TREATMENTS_TABLE)}` t
         LEFT JOIN `{_table_ref(hospital, USERS_TABLE)}` s ON s.user_id = t.staff_user_id
+        LEFT JOIN `{_table_ref(hospital, TEST_COMPLETIONS_TABLE)}` c ON c.treatment_id = t.treatment_id
         WHERE t.encounter_id = @encounter_id
         ORDER BY t.administered_at DESC
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[bigquery.ScalarQueryParameter("encounter_id", "STRING", encounter_id)]
     )
-    return [dict(row) for row in client.query(query, job_config=job_config).result()]
+    rows = [dict(row) for row in client.query(query, job_config=job_config).result()]
+    for row in rows:
+        row["is_pending"] = row["completed_at"] is None
+    return rows
+
+
+def complete_test(hospital: str, treatment_id: str, staff_user_id: str, result_notes: str) -> None:
+    row = {
+        "test_completion_id": str(uuid.uuid4()),
+        "treatment_id": treatment_id,
+        "staff_user_id": staff_user_id,
+        "result_notes": result_notes,
+        "completed_at": _now(),
+    }
+    _load_insert(_table_ref(hospital, TEST_COMPLETIONS_TABLE), row)
 
 
 # ---- discharges -----------------------------------------------------------
@@ -466,6 +509,31 @@ def list_charges_for_encounter(hospital: str, encounter_id: str) -> list[dict]:
         FROM `{_table_ref(hospital, BILLING_CHARGES_TABLE)}`
         WHERE encounter_id = @encounter_id
         ORDER BY created_at
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[bigquery.ScalarQueryParameter("encounter_id", "STRING", encounter_id)]
+    )
+    return [dict(row) for row in client.query(query, job_config=job_config).result()]
+
+
+def record_payment(hospital: str, encounter_id: str, patient_user_id: str, amount: float) -> None:
+    row = {
+        "payment_id": str(uuid.uuid4()),
+        "encounter_id": encounter_id,
+        "patient_user_id": patient_user_id,
+        "amount": f"{amount:.2f}",
+        "paid_at": _now(),
+    }
+    _load_insert(_table_ref(hospital, PAYMENTS_TABLE), row)
+
+
+def list_payments_for_encounter(hospital: str, encounter_id: str) -> list[dict]:
+    client = get_client()
+    query = f"""
+        SELECT payment_id, amount, paid_at
+        FROM `{_table_ref(hospital, PAYMENTS_TABLE)}`
+        WHERE encounter_id = @encounter_id
+        ORDER BY paid_at
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[bigquery.ScalarQueryParameter("encounter_id", "STRING", encounter_id)]

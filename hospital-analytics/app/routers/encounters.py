@@ -4,14 +4,17 @@ from fastapi.responses import RedirectResponse
 from app.bigquery_client import (
     add_treatment,
     assign_room,
+    complete_test,
     discharge_encounter,
     get_current_room,
     get_encounter,
     list_available_rooms,
     list_charges_for_encounter,
+    list_payments_for_encounter,
     list_treatments_for_encounter,
+    record_payment,
 )
-from app.config import HOSPITALS
+from app.config import HOSPITALS, TEST_CATEGORIES, TREATMENT_CATEGORIES
 from app.deps import current_user_for
 from app.templating import templates
 
@@ -26,7 +29,10 @@ def _detail_context(hospital: str, encounter: dict, user: dict, error: str | Non
         "encounter": encounter,
         "current_room": get_current_room(hospital, encounter["encounter_id"]),
         "treatments": list_treatments_for_encounter(hospital, encounter["encounter_id"]),
+        "treatment_categories": TREATMENT_CATEGORIES,
+        "test_categories": TEST_CATEGORIES,
         "charges": list_charges_for_encounter(hospital, encounter["encounter_id"]),
+        "payments": list_payments_for_encounter(hospital, encounter["encounter_id"]),
         "available_rooms": [] if encounter["is_discharged"] else list_available_rooms(hospital),
         "error": error,
     }
@@ -80,6 +86,7 @@ def add_encounter_treatment(
     hospital: str,
     encounter_id: str,
     treatment_type: str = Form(...),
+    category: str = Form(...),
     notes: str = Form(""),
 ):
     user = current_user_for(request, hospital, "staff")
@@ -90,11 +97,11 @@ def add_encounter_treatment(
     if not encounter:
         raise HTTPException(status_code=404, detail="Encounter not found")
 
-    if encounter["is_discharged"]:
+    if encounter["is_discharged"] or category not in TREATMENT_CATEGORIES:
         return templates.TemplateResponse(
             request,
             "encounter_detail.html",
-            _detail_context(hospital, encounter, user, error="This encounter is already discharged."),
+            _detail_context(hospital, encounter, user, error="Could not add treatment."),
             status_code=400,
         )
 
@@ -103,9 +110,52 @@ def add_encounter_treatment(
         encounter_id,
         staff_user_id=user["user_id"],
         treatment_type=treatment_type,
+        category=category,
         notes=notes or None,
         patient_user_id=encounter["patient_user_id"],
     )
+    return RedirectResponse(f"/{hospital}/staff/encounters/{encounter_id}", status_code=303)
+
+
+@router.post("/{hospital}/staff/encounters/{encounter_id}/treatments/{treatment_id}/complete")
+def complete_encounter_test(
+    request: Request,
+    hospital: str,
+    encounter_id: str,
+    treatment_id: str,
+    result_notes: str = Form(""),
+):
+    user = current_user_for(request, hospital, "staff")
+    if not user:
+        return RedirectResponse(f"/{hospital}/login", status_code=303)
+
+    encounter = get_encounter(hospital, encounter_id)
+    if not encounter:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+
+    complete_test(hospital, treatment_id, staff_user_id=user["user_id"], result_notes=result_notes or None)
+    return RedirectResponse(f"/{hospital}/staff/encounters/{encounter_id}", status_code=303)
+
+
+@router.post("/{hospital}/staff/encounters/{encounter_id}/payments")
+def add_payment(request: Request, hospital: str, encounter_id: str, amount: float = Form(...)):
+    user = current_user_for(request, hospital, "staff")
+    if not user:
+        return RedirectResponse(f"/{hospital}/login", status_code=303)
+
+    encounter = get_encounter(hospital, encounter_id)
+    if not encounter:
+        raise HTTPException(status_code=404, detail="Encounter not found")
+
+    if amount <= 0:
+        return templates.TemplateResponse(
+            request,
+            "encounter_detail.html",
+            _detail_context(hospital, encounter, user, error="Payment amount must be greater than zero."),
+            status_code=400,
+        )
+
+    record_payment(hospital, encounter_id, patient_user_id=encounter["patient_user_id"], amount=amount)
     return RedirectResponse(f"/{hospital}/staff/encounters/{encounter_id}", status_code=303)
 
 

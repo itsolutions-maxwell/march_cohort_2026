@@ -24,6 +24,13 @@ ADMISSION_FEES = {"outpatient": 150.00, "inpatient": 500.00, "emergency": 750.00
 ROOM_ASSIGNMENT_FEE = 200.00
 TREATMENT_FEE = 75.00
 
+# Lab/imaging categories get pending -> result tracking (test_completions);
+# procedure/medication/other are logged as already-done when entered.
+TEST_CATEGORIES = ["blood_work", "x_ray", "ct", "mri", "ultrasound", "pathology"]
+TREATMENT_CATEGORIES = TEST_CATEGORIES + ["procedure", "medication", "other"]
+
+PAYER_TYPES = ["insurance", "self_pay"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

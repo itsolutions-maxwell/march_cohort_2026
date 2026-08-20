@@ -18,9 +18,11 @@ DEMO_ROOMS = [
     ("101", "general", 1),
     ("102", "general", 1),
     ("103", "private", 1),
+    ("104", "semi_private", 1),
     ("201", "icu", 2),
     ("202", "icu", 2),
     ("203", "er", 2),
+    ("204", "operating_room", 2),
 ]
 
 

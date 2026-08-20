@@ -19,33 +19,85 @@ straight to BigQuery — one dataset per hospital, no other datastore.
 - **Data model** (see `bigquery/setup_bigquery.py` for exact schemas)
   mirrors a real patient visit — sign up → get admitted → get a room →
   receive treatment → get billed → get discharged → view it in the
-  portal — as ten small tables per hospital:
+  portal — as eleven small tables per hospital:
   - Dimension-shaped (who/what): `users` (login), `patients`
-    (demographics), `staff_profiles` (department/title), `rooms`
-    (physical inventory, seeded), `hospital_info` (name/address/phone,
-    one row, seeded)
+    (demographics + `payer_type`), `staff_profiles` (department/title),
+    `rooms` (physical inventory, seeded — `general`/`private`/
+    `semi_private`/`icu`/`er`/`operating_room`), `hospital_info`
+    (name/address/phone, one row, seeded)
   - Fact-shaped (events, insert-only): `encounters` (one row per
-    admission/visit), `room_assignments`, `treatments`, `discharges`,
+    admission/visit — `department`, `expected_discharge_date`),
+    `room_assignments`, `treatments` (`category` — lab/imaging/pathology
+    types get pending → result tracking), `test_completions` (the
+    "result" event for a pending treatment), `discharges`,
     `billing_charges` (auto-generated whenever an encounter is created, a
     room is assigned, or a treatment is added — see `add_charge` calls in
-    `app/bigquery_client.py`)
-
-  This is meant to be queried directly in BigQuery once there's enough
-  data — e.g. join `rooms`/`room_assignments`/`discharges` for occupancy
-  over time, `staff_profiles`/`encounters` for caseload by department, or
-  `billing_charges` for revenue by hospital/charge type. Building the
-  actual marts/views is a deliberate next step, not part of this app.
+    `app/bigquery_client.py`), `payments` (recorded against an encounter's
+    bill; outstanding = charged − paid)
 
   **Nothing is ever updated in place**: BigQuery on this project's free
   tier rejects `UPDATE`, so instead of an `encounters.status` column,
-  every state change (admit, assign a room, add a treatment, discharge)
-  is its own new row, and "is this encounter still active" / "what room
-  are they in now" / "what do they owe" are derived at query time from
-  the latest rows (`app/bigquery_client.py`'s `_encounter_rows`,
-  `get_current_room`, `list_available_rooms`,
-  `list_charges_for_encounter`). The old `records` table from an earlier
-  version of this app is unused now; it's still in BigQuery but nothing
-  reads or writes it.
+  every state change (admit, assign a room, add a treatment, complete a
+  test, record a payment, discharge) is its own new row, and "is this
+  encounter still active" / "what room are they in now" / "what do they
+  owe" are derived at query time from the latest rows
+  (`app/bigquery_client.py`'s `_encounter_rows`, `get_current_room`,
+  `list_available_rooms`, `list_charges_for_encounter`). The old `records`
+  table from an earlier version of this app is unused now; it's still in
+  BigQuery but nothing reads or writes it.
+
+## Medallion architecture: raw → silver → gold
+
+The per-hospital tables above are the **bronze** layer — exactly what the
+app writes, one dataset per hospital, never cross-referenced. On top of
+that, `bigquery/sql_queries/` holds hand-run SQL (not app code — you run
+these yourself, in BigQuery, as a teaching exercise in the medallion
+pattern) that builds three more datasets:
+
+- **`raw/`** — one view per bronze table, per-view UNION ALL of
+  `hospital_a`/`hospital_b`/`hospital_c` tagged with `hospital_id`. No
+  cleaning, no dedup, no null handling — it's exactly what's in the source
+  tables, combined.
+- **`silver/`** — cleaned and conformed. `silver/01_users.sql` is the one
+  to read first: it drops junk rows, normalizes email, dedupes on
+  `(hospital, email)`, and splits `full_name` into `first_name`/
+  `last_name` (there's no separate name column anywhere upstream — this is
+  silver *adding* structure raw never had). `silver/05_encounters.sql` is
+  the other important one: it resolves "current room" and "is discharged"
+  from the raw event log, the same way `_encounter_rows` does in Python,
+  but as SQL every other view can reuse.
+  `silver/08_data_quality_duplicate_patients.sql` is a fixed, all-three-
+  hospitals version of the `duplicate_patients.sql` query already in this
+  folder (the original only checked `hospital_a`/`hospital_b` —
+  `hospital_c` was missing) — it flags patients with the same name at more
+  than one hospital for review; it doesn't merge or delete anything, since
+  there's no way to be sure from a name alone that two rows are the same
+  person.
+- **`gold/`** — dashboard-ready facts/dims built on silver:
+  `dim_hospital`, `fact_bed_occupancy`, `fact_encounters`,
+  `fact_billing`, `fact_receivables` (charged vs. paid vs. outstanding,
+  per encounter), `fact_tests` (pending/completed, turnaround time).
+
+Everything is a `CREATE OR REPLACE VIEW`, not a materialized table — zero
+storage cost, always reflects live bronze data, no refresh job to manage.
+Run them in order, once. Paste them into the BigQuery console by hand if
+you want to read each one as you go (this is a teaching exercise, after
+all) — or run a whole folder at once with `bigquery/run_sql_folder.py`,
+which just executes every `.sql` file in a folder, in filename order (so
+the `01_`, `02_`, ... numbering matters — `silver/05_encounters.sql`
+depends on `silver/02`/`03` already existing):
+
+```bash
+# One-time: paste 00_create_datasets.sql into the BigQuery console (or
+# run it with the bq CLI) to create the raw/silver/gold datasets.
+
+python -m bigquery.run_sql_folder raw
+python -m bigquery.run_sql_folder silver
+python -m bigquery.run_sql_folder gold
+```
+
+Re-run any of them any time after a schema change — every file is
+`CREATE OR REPLACE VIEW`, so it's always safe to re-run.
 
 ## 1. Local setup
 
@@ -143,5 +195,10 @@ Credentials pick it up automatically — no key file needed in prod).
   availability check before either write lands (no unique constraint to
   fall back on). Fine at demo scale, worth a lock/queue if this became
   real.
+- **The seeded demo patients (`bigquery/seed_users.py`) have a login but
+  no `patients` profile row** — they predate that table. `silver.patients`
+  (an inner join to `raw.patients`) correctly excludes them, so they won't
+  show up in patient-scoped gold views. Sign up a fresh patient through
+  the app to get one with a full profile.
 - **`SESSION_SECRET_KEY` must be a real secret** in any deployed
   environment — never commit `.env` (already gitignored).

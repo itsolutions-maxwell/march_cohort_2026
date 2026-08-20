@@ -10,7 +10,7 @@ from app.bigquery_client import (
     insert_staff_profile,
     insert_user,
 )
-from app.config import BLOOD_TYPES, DEPARTMENTS, GENDER_OPTIONS, HOSPITALS
+from app.config import BLOOD_TYPES, DEPARTMENTS, GENDER_OPTIONS, HOSPITALS, PAYER_TYPES
 from app.security import hash_password, verify_password
 from app.templating import templates
 
@@ -36,6 +36,7 @@ def _signup_context(hospital: str, error: str | None) -> dict:
         "genders": GENDER_OPTIONS,
         "blood_types": BLOOD_TYPES,
         "departments": DEPARTMENTS,
+        "payer_types": PAYER_TYPES,
         "error": error,
     }
 
@@ -89,6 +90,7 @@ def signup(
     gender: str = Form(""),
     phone: str = Form(""),
     blood_type: str = Form(""),
+    payer_type: str = Form("self_pay"),
     department: str = Form(""),
     title: str = Form(""),
 ):
@@ -127,6 +129,7 @@ def signup(
             gender=gender,
             phone=phone or None,
             blood_type=blood_type or None,
+            payer_type=payer_type,
         )
     else:
         insert_staff_profile(hospital, staff_user_id=user_id, department=department, title=title)

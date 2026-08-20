@@ -50,19 +50,34 @@
   </section>
 
   <section class="card">
-    <h2>Treatments</h2>
+    <h2>Treatments &amp; tests</h2>
     {% if treatments %}
       <table>
         <thead>
-          <tr><th>When</th><th>Type</th><th>Notes</th><th>By</th></tr>
+          <tr><th>When</th><th>Category</th><th>Type</th><th>Notes</th><th>By</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
           {% for t in treatments %}
             <tr>
               <td>{{ t.administered_at }}</td>
+              <td>{{ t.category|replace("_", " ")|capitalize }}</td>
               <td>{{ t.treatment_type }}</td>
               <td>{{ t.notes }}</td>
               <td>{{ t.staff_name }}</td>
+              <td>
+                {% if t.category in test_categories %}
+                  {{ "Pending" if t.is_pending else "Completed " + t.completed_at|string }}
+                {% else %}
+                  &mdash;
+                {% endif %}
+              </td>
+              <td>
+                {% if t.category in test_categories and t.is_pending %}
+                  <form action="/{{ hospital }}/staff/encounters/{{ encounter.encounter_id }}/treatments/{{ t.treatment_id }}/complete" method="post">
+                    <button type="submit">Mark result complete</button>
+                  </form>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
@@ -74,8 +89,16 @@
     {% if not encounter.is_discharged %}
       <form class="card-form" action="/{{ hospital }}/staff/encounters/{{ encounter.encounter_id }}/treatments" method="post">
         <label>
-          Treatment type
-          <input type="text" name="treatment_type" required placeholder="e.g. medication, lab test, procedure">
+          Category
+          <select name="category" required>
+            {% for c in treatment_categories %}
+              <option value="{{ c }}">{{ c|replace("_", " ")|capitalize }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Treatment / test type
+          <input type="text" name="treatment_type" required placeholder="e.g. CBC with differential, chest X-ray">
         </label>
         <label>
           Notes
@@ -104,7 +127,37 @@
           {% endfor %}
         </tbody>
       </table>
-      <p class="subtitle">Total: ${{ "%.2f"|format(charges|sum(attribute="amount")) }}</p>
+      {% set total_charged = charges|sum(attribute="amount") %}
+      {% set total_paid = payments|sum(attribute="amount") %}
+      <p class="subtitle">
+        Charged: ${{ "%.2f"|format(total_charged) }} ·
+        Paid: ${{ "%.2f"|format(total_paid) }} ·
+        Outstanding: ${{ "%.2f"|format(total_charged - total_paid) }}
+      </p>
+
+      {% if payments %}
+        <table>
+          <thead>
+            <tr><th>When</th><th>Amount paid</th></tr>
+          </thead>
+          <tbody>
+            {% for pmt in payments %}
+              <tr>
+                <td>{{ pmt.paid_at }}</td>
+                <td>${{ "%.2f"|format(pmt.amount) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+      <form class="card-form" action="/{{ hospital }}/staff/encounters/{{ encounter.encounter_id }}/payments" method="post">
+        <label>
+          Record a payment
+          <input type="number" name="amount" min="0.01" step="0.01" required placeholder="Amount">
+        </label>
+        <button type="submit">Record payment</button>
+      </form>
     {% else %}
       <p class="subtitle">No charges yet.</p>
     {% endif %}

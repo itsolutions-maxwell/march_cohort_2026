@@ -34,8 +34,20 @@
           </select>
         </label>
         <label>
+          Department
+          <select name="department" required>
+            {% for d in departments %}
+              <option value="{{ d }}">{{ d }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
           Reason (optional)
           <input type="text" name="reason" placeholder="e.g. chest pain, annual checkup">
+        </label>
+        <label>
+          Expected discharge date (optional)
+          <input type="date" name="expected_discharge_date">
         </label>
         <button type="submit">Admit</button>
       </form>
@@ -49,7 +61,7 @@
     {% if encounters %}
       <table>
         <thead>
-          <tr><th>When</th><th>Patient</th><th>Type</th><th>Status</th><th>Room</th><th></th></tr>
+          <tr><th>When</th><th>Patient</th><th>Type</th><th>Department</th><th>Status</th><th>Room</th><th></th></tr>
         </thead>
         <tbody>
           {% for e in encounters %}
@@ -57,6 +69,7 @@
               <td>{{ e.created_at }}</td>
               <td>{{ e.patient_name }}</td>
               <td>{{ e.encounter_type|capitalize }}</td>
+              <td>{{ e.department if e.department else "Unspecified" }}</td>
               <td>{{ "Discharged" if e.is_discharged else "Active" }}</td>
               <td>{{ e.room_number if e.room_number else "Unassigned" }}</td>
               <td><a href="/{{ hospital }}/staff/encounters/{{ e.encounter_id }}">View</a></td>

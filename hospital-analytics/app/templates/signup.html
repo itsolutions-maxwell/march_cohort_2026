@@ -70,6 +70,14 @@
           {% endfor %}
         </select>
       </label>
+      <label>
+        Payer type
+        <select name="payer_type">
+          {% for pt in payer_types %}
+            <option value="{{ pt }}">{{ pt|replace("_", " ")|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
     </div>
 
     <button type="submit">Create account</button>
